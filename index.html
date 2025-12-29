@@ -1,34 +1,109 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Basic HLS Video Player</title>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <meta charset="UTF-8">
+    <title>Simple Video Loader with Load Time</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        video {
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            background: #000;
+            display: block;
+            margin-bottom: 15px;
+        }
+        button {
+            padding: 10px 15px;
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        #loadTime {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-  <h1>Basic HLS Video Player</h1>
-  <video id="video" controls width="640" height="360"></video>
 
-  <script>
-    const video = document.getElementById('video');
-    const hlsUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
+<h2>Video Player</h2>
 
-    if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play();
-      });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari & iOS natively support HLS
-      video.src = hlsUrl;
-      video.addEventListener('loadedmetadata', () => {
-        video.play();
-      });
-    } else {
-      console.error('HLS not supported in this browser');
+<video id="player" controls></video>
+<p id="loadTime"></p>
+
+<button id="loadWebmBtn">Load WebM</button>
+<button id="loadM3u8Btn">Load M3U8</button>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+    const video = document.getElementById("player");
+    const loadTimeDisplay = document.getElementById("loadTime");
+    let startTime;
+
+    function measureLoadTime() {
+        const endTime = performance.now();
+        const timeTaken = ((endTime - startTime) / 1000).toFixed(2);
+        loadTimeDisplay.textContent = `Video loaded in ${timeTaken} seconds`;
     }
-  </script>
+
+    document.getElementById("loadWebmBtn").onclick = function () {
+        const url = prompt("Enter WebM file URL or path:");
+        if (!url) return;
+
+        // Start timing
+        startTime = performance.now();
+
+        // Clear HLS instance if any
+        if (window.hls) {
+            window.hls.destroy();
+            window.hls = null;
+        }
+
+        // Remove previous event listeners to avoid duplicate triggers
+        video.removeEventListener('canplay', measureLoadTime);
+
+        video.src = url;
+        video.load();
+
+        // Listen for canplay event to measure load time
+        video.addEventListener('canplay', measureLoadTime, { once: true });
+        video.play();
+    };
+
+    document.getElementById("loadM3u8Btn").onclick = function () {
+        const url = prompt("Enter M3U8 URL:");
+        if (!url) return;
+
+        // Start timing
+        startTime = performance.now();
+
+        // Remove previous event listeners
+        video.removeEventListener('canplay', measureLoadTime);
+
+        // If browser supports native HLS (Safari)
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            video.src = url;
+            video.load();
+            video.addEventListener('canplay', measureLoadTime, { once: true });
+            video.play();
+        } else {
+            // Use hls.js for other browsers
+            if (window.hls) window.hls.destroy();
+
+            window.hls = new Hls();
+            window.hls.loadSource(url);
+            window.hls.attachMedia(video);
+            window.hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                // Listen for canplay to measure load time
+                video.addEventListener('canplay', measureLoadTime, { once: true });
+                video.play();
+            });
+        }
+    };
+</script>
+
 </body>
 </html>
